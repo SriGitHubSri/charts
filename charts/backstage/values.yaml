@@ -259,7 +259,7 @@ backstage:
 service:
 
   # -- Kubernetes Service type
-  type: ClusterIP
+  type: NodePort
 
   # -- Backstage svc port for client connections
   ports:
