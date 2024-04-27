@@ -223,7 +223,13 @@ backstage:
   #   app:
   #     baseUrl: https://somedomain.tld
   # -- Generates ConfigMap and configures it in the Backstage pods
-  appConfig: {}
+  appConfig: 
+    permission:
+      enabled: true
+    backend:
+      auth:
+        keys:
+          - secret: ${BACKEND_SECRET}
 
   # -- Affinity for pod assignment
   # <br /> Ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
