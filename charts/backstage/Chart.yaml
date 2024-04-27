@@ -11,29 +11,29 @@ annotations:
 apiVersion: v2
 description: A Helm chart for deploying a Backstage application
 dependencies:
-  - name: common
-    repository: https://charts.bitnami.com/bitnami
-    tags:
-      - bitnami-common
-    version: 2.x.x
-  - condition: postgresql.enabled
-    name: postgresql
-    repository: https://charts.bitnami.com/bitnami
-    version: 12.x.x
+- name: common
+  repository: "file:///home/testSri/charts-main/charts/common-2.19.0.tgz"
+  tags:
+  - bitnami-common
+  version: 2.x.x
+- condition: postgresql.enabled
+  name: postgresql
+  repository: "file:///home/testSri/charts-main/charts/postgresql-12.12.10.tgz"
+  version: 12.x.x
 home: https://backstage.io
 icon: https://raw.githubusercontent.com/cncf/artwork/master/projects/backstage/icon/color/backstage-icon-color.svg
 keywords:
-  - backstage
-  - idp
+- backstage
+- idp
 kubeVersion: ">= 1.19.0-0"
 maintainers:
-  - name: Backstage
-    url: https://backstage.io
+- name: Backstage
+  url: https://backstage.io
 name: backstage
 type: application
 sources:
-  - https://github.com/backstage/charts
-  - https://github.com/backstage/backstage
+- https://github.com/backstage/charts
+- https://github.com/backstage/backstage
 
 # This is the chart version. This version number should be incremented each time you make changes
 # to the chart and its templates, including the app version.

@@ -56,7 +56,7 @@ diagnosticMode:
 ingress:
 
   # -- Enable the creation of the ingress resource
-  enabled: true
+  enabled: false
 
   # -- Name of the IngressClass cluster resource which defines which controller will implement the resource (e.g nginx)
   className: ""
@@ -259,7 +259,7 @@ backstage:
 service:
 
   # -- Kubernetes Service type
-  type: LoadBalancer
+  type: ClusterIP
 
   # -- Backstage svc port for client connections
   ports:
