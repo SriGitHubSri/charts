@@ -229,7 +229,7 @@ backstage:
     backend:
       auth:
         keys:
-          - secret: ${BACKEND_SECRET}
+          - secret: BmRar0luAsFTxzdJtCGa1afjfBvIbApu
 
   # -- Affinity for pod assignment
   # <br /> Ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
