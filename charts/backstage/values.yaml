@@ -229,6 +229,7 @@ backstage:
     app:
       baseUrl: https://somedomain.tld
     backend:
+      baseUrl: https://somedomain.tld
       auth:
         keys:
           - secret: 'secret'
