@@ -233,6 +233,16 @@ backstage:
       auth:
         keys:
           - secret: 'secret'
+    techdocs:
+      builder: 'local'
+      generator:
+        runIn: 'local'
+      publisher:
+        type: 'local'
+    catalog:
+      locations:
+      - type: url
+        target: https://github.com/mclarke47/dice-roller/blob/master/catalog-info.yaml  
 
   # -- Affinity for pod assignment
   # <br /> Ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
