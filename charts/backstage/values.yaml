@@ -226,6 +226,8 @@ backstage:
   appConfig: 
     permission:
       enabled: true
+    app:
+      baseUrl: https://somedomain.tld
     backend:
       auth:
         keys:
