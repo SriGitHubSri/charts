@@ -90,13 +90,13 @@ backstage:
   image:
 
     # -- Backstage image registry
-    registry: ghcr.io
+    registry: 387581210505.dkr.ecr.eu-west-2.amazonaws.com
 
     # -- Backstage image repository
-    repository: backstage/backstage
+    repository: test-bak
 
     # -- Backstage image tag (immutable tags are recommended)
-    tag: latest
+    tag: backstage
 
     # -- Specify a imagePullPolicy.
     # Defaults to 'Always' if image tag is 'latest', else set to 'IfNotPresent'
