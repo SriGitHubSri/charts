@@ -56,7 +56,7 @@ diagnosticMode:
 ingress:
 
   # -- Enable the creation of the ingress resource
-  enabled: false
+  enabled: true
 
   # -- Name of the IngressClass cluster resource which defines which controller will implement the resource (e.g nginx)
   className: "nginx"
@@ -65,16 +65,16 @@ ingress:
   annotations: {}
 
   # -- Hostname to be used to expose the route to access the backstage application (e.g: backstage.IP.nip.io)
-  host: "acbb7d4819021471b9a9ee0b8a95791b-1760438959.eu-west-2.elb.amazonaws.com"
+  host: "abb957f9f55d34ff9aa667aabbae778b-1006663303.eu-west-2.elb.amazonaws.com"
 
   # -- Ingress TLS parameters
   tls:
 
     # -- Enable TLS configuration for the host defined at `ingress.host` parameter
-    enabled: false
+    enabled: true
 
     # -- The name to which the TLS Secret will be called
-    secretName: ""
+    secretName: default-server-secret
 
 # -- Backstage parameters
 # @default -- See below
@@ -96,12 +96,12 @@ backstage:
     repository: test-bak
 
     # -- Backstage image tag (immutable tags are recommended)
-    tag: backstage
+    tag: tstbak140
 
     # -- Specify a imagePullPolicy.
     # Defaults to 'Always' if image tag is 'latest', else set to 'IfNotPresent'
     # <br /> Ref: https://kubernetes.io/docs/concepts/containers/images/#image-pull-policy
-    pullPolicy: Always
+    pullPolicy: IfNotPresent
 
     # -- Optionally specify an array of imagePullSecrets.
     #  Secrets must be manually created in the namespace.
@@ -223,27 +223,92 @@ backstage:
   #   app:
   #     baseUrl: https://somedomain.tld
   # -- Generates ConfigMap and configures it in the Backstage pods
-  appConfig: 
-    permission:
-      enabled: true
+  appConfig:
     app:
-      baseUrl: https://somedomain.tld
+      title: PaaP Backstage App
+      baseUrl: http://0.0.0.0:31338
+    organization:
+      name: Developer Portal
     backend:
-      baseUrl: https://somedomain.tld
-      auth:
-        keys:
-          - secret: 'secret'
+      baseUrl: http://0.0.0.0:31338
+      listen:
+        port: 7007
+        host: 0.0.0.0
+      csp:
+        connect-src: ["'self'", "http:", "https:"]
+        upgrade-insecure-requests: false
+      cors:
+        origin: '*'
+        methods: [GET, HEAD, PATCH, POST, PUT, DELETE]
+        credentials: false
+      database:
+        client: better-sqlite3
+        connection: ":memory:"
+      cache:
+        store: memory
+    # workingDirectory: /tmp # Use this to configure a working directory for the scaffolder, defaults to the OS temp-dir
+    integrations:
+      awsS3:
+      - endpoint: 'http://minio.kratix-platform-system.svc.cluster.local'
+        s3ForcePathStyle: true
+        accessKeyId: ${AWS_ACCESS_KEY_ID}
+        secretAccessKey: ${AWS_SECRET_ACCESS_KEY}
+      github:
+      - host: github.com
+        token: ${GITHUB_TOKEN}
+      gitlab:
+      - host: gitlab.com
+        token: 'glpat-DA1J-jb8xny68QKUhzb4'
     techdocs:
-      builder: 'local'
+      builder: "local" # Alternatives - 'external'
       generator:
-        runIn: 'local'
+        runIn: "docker" # Alternatives - 'local'
       publisher:
-        type: 'local'
+        type: "local" # Alternatives - 'googleGcs' or 'awsS3'. Read documentation for using alternatives.
+    auth:
+      providers: {}
+    kubernetes:
+      serviceLocatorMethod:
+        type: 'multiTenant'
+      clusterLocatorMethods:
+      - type: 'config'
+        clusters:
+        - url: https://345E0935DEE459932859862DBF7847EF.gr7.eu-west-2.eks.amazonaws.com
+          name: kind-platform
+          authProvider: 'serviceAccount'
+          skipTLSVerify: true
+          skipMetricsLookup: true
+          serviceAccountToken: 'eyJhbGciOiJSUzI1NiIsImtpZCI6IlQxX1BDR01ISm9Rdk5uR0YxcDFtNEwyekdsOU8zdnltdGU4RlJoLWw3WE0ifQ.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJkZWZhdWx0Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubmFtZSI6ImtyYXRpeC1iYWNrc3RhZ2Utc2EtdG9rZW4iLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC5uYW1lIjoia3JhdGl4LWJhY2tzdGFnZS1zYSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50LnVpZCI6IjY1YWMzMGMyLTY4MzItNDA0NS1hNTIxLWQ3MmU4OWU5NDcyYyIsInN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpkZWZhdWx0OmtyYXRpeC1iYWNrc3RhZ2Utc2EifQ.7z1mKTBH_xR1qlkm0MlR0F93_kIyjjlmalHiyULGJF150S3xlQclglb8byA7JsyPyUIyKMnAwmkBferS6PHUE9x1wKWSHyneRWqdMbQOlHmNnwmvzQJ8akXLVK9ztqY_z9nCEa7xNxJxja1tbxouaGn9kuv0rw2Kvx_i-BW-JKHU32p7lGOhPWnHWswrm3wkBf1BRBoNmkpR7OZuCJtjDzBqIwSILRemY8LhzOXOVzX3BnelbAz4dcQb2c9d-KA149hepovqQtqBQWiCR6RAP5-7j6uxjCjdjOY4zHYYcNEVi6KVSaaZ8bVtcFEkgI44k8emV7IBhFbgmUCc5Uxuqg'
+          customResources:
+          - group: 'platform.kratix.io'
+            apiVersion: 'v1alpha1'
+            plural: 'promises'
+    ske:
+      scm:
+        username: KratixStateStore-at-965329800628
+        token: 'qyGNwL9ZSp+MfaXel1RJGZ2u1eHqAVHSavQrQCzq1OM='
+        repoUrl: https://git-codecommit.eu-west-1.amazonaws.com/v1/repos/KratixStateStore.git
+        path: "AWS_PLATFORM/platform-cluster-codecommit/resources"
+        branch: "main"
+    scaffolder:
     catalog:
+      import:
+        entityFilename: catalog-info.yaml
+        pullRequestBranchName: backstage-integration
+      rules:
+      - allow: [Domain, Component, System, API, Resource, Location, Group, Template]
+      providers:
+        awsS3:
+          kratix-minio:
+            bucketName: kratix
+            prefix: backstage
+            region: eu-west-2
+            schedule: # optional; same options as in TaskScheduleDefinition
+          # supports cron, ISO duration, "human duration" as used in code
+              frequency: {minutes: 1}
+          # supports ISO duration, "human duration" as used in code
+              timeout: {seconds: 20}
       locations:
-      - type: url
-        target: https://github.com/mclarke47/dice-roller/blob/master/catalog-info.yaml  
-
   # -- Affinity for pod assignment
   # <br /> Ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
   affinity: {}
@@ -442,3 +507,5 @@ metrics:
     # -- ServiceMonitor endpoint path
     # <br /> Note that the /metrics endpoint is NOT present in a freshly scaffolded Backstage app. To setup, follow the [Prometheus metrics tutorial](https://github.com/backstage/backstage/blob/master/contrib/docs/tutorials/prometheus-metrics.md).
     path: /metrics
+
+
