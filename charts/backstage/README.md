@@ -876,3 +876,17 @@ Here, you can specify an existing Kubernetes secret that you have created which 
 - Set `postgresql.auth.existingSecret` to the name of the Secret
 - PostgreSQL by default will look for the relevant Password keys that are set by default here `postgresql.auth.secretKeys`. So make sure that the Keys in the Secret match the default `secretKeys` values. More information [here](https://artifacthub.io/packages/helm/bitnami/postgresql)
 - For example, if you want PostgreSQL to use an existing Secret called `my-user-secret` that has the User password that you want to use inside it: make sure that you create a Key inside that secret called `user-password` (this key can be found here `postgresql.auth.secretKeys.userPasswordKey`). i.e. `user-password=Password123`.
+
+# Instructions 
+
+[paap@labecp016457 backstage-install]$ vi README.md
+# Using Backstage and Kratix
+
+1. Update your platform to additionally have port 31338 open.
+1. Load the `backstage-image.tar` in minikube on the platform cluster.
+1. Create an `app-config.yaml` file with your backstage configuration. `app-config.example.yaml` is included in this directory.
+2. Run `kubectl --context=$PLATFORM create configmap backstage --from-file=config=app-config.yaml`
+3. Deploy backstage `kubectl --context=$PLATFORM apply -f backstage-deployment.yaml`
+4. Navigate to `http://localhost:31338` to see the Backstage UI
+~
+~
