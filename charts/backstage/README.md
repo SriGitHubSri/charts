@@ -890,3 +890,27 @@ Here, you can specify an existing Kubernetes secret that you have created which 
 4. Navigate to `http://localhost:31338` to see the Backstage UI
 ~
 ~
+[paap@labecp016457 backstage-minio]$ vi backstage-script.sh
+#!/bin/bash
+
+export PLATFORM="kind-platform"
+export WORKER="kind-worker"
+
+kubectl --context $WORKER apply -f worker-service-account.yaml
+kubectl --context $PLATFORM apply -f platform-service-account.yaml
+
+sleep 5
+
+WORKER_TOKEN=$(kubectl --context $WORKER get secret kratix-backstage-worker-sa-token -o=jsonpath='{.data.token}' | base64 --decode)
+echo $WORKER_TOKEN
+
+PLATFORM_TOKEN=$(kubectl --context $PLATFORM get secret kratix-backstage-sa-token -o=jsonpath='{.data.token}' | base64 --decode)
+echo $PLATFORM_TOKEN
+
+sed "s/WORKER_TOKEN/$WORKER_TOKEN/g" app-config-test.yaml | sed "s/PLATFORM_TOKEN/$PLATFORM_TOKEN/g" > app-config.yaml
+
+
+kubectl --context=$PLATFORM create configmap backstage --from-file=config=app-config.yaml
+
+kubectl --context=$PLATFORM apply -f backstage-deployment.yaml
+~
