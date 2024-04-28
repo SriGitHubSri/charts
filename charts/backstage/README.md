@@ -147,6 +147,407 @@ metadata:
   name: minio-create-bucket
   namespace: default
 
+# cat platform-service-account.yaml
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kratix-backstage-sa
+secrets:
+- name: kratix-backstage-sa-token
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kratix-backstage-sa-token
+  annotations:
+    kubernetes.io/service-account.name: "kratix-backstage-sa"
+type: kubernetes.io/service-account-token
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kratix-backstage-cr
+rules:
+- verbs:
+    - '*'
+  apiGroups:
+    - '*'
+  resources:
+    - '*'
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kratix-backstage-crb
+subjects:
+  - kind: ServiceAccount
+    name: kratix-backstage-sa
+    namespace: default
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kratix-backstage-cr
+---
+
+backstage-deploymentl.yaml
+
+root@ip-10-55-118-237 backstage]# cat backstage-deployment.yaml
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backstage
+  namespace: default
+  labels:
+    app: backstage
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backstage
+  template:
+    metadata:
+      labels:
+        app: backstage
+    spec:
+      serviceAccountName: kratix-backstage-sa
+      containers:
+      - name: backstage
+        image: 965329800628.dkr.ecr.eu-west-1.amazonaws.com/backstage:1.4.0
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: minio-credentials
+              key: accessKeyID
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: minio-credentials
+              key: secretAccessKey
+        - name: APP_CONFIG_PATH
+          value: "/config"
+        ports:
+        - containerPort: 7007
+        volumeMounts:
+          - name: config
+            mountPath: "/config"
+      volumes:
+      - configMap:
+          defaultMode: 420
+          items:
+          - key: config
+            path: app-config.yaml
+          name: backstage
+        name: config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backstage
+  namespace: default
+spec:
+  ports:
+  - nodePort: 31338
+    port: 7007
+    protocol: TCP
+  selector:
+    app: backstage
+  type: NodePort
+---
+
+# cat app-config.yaml
+app:
+  title: PaaP Backstage App
+  baseUrl: http://0.0.0.0:31338
+organization:
+  name: Developer Portal
+backend:
+  # Used for enabling authentication, secret is shared by all backend plugins
+  # See https://backstage.io/docs/tutorials/backend-to-backend-auth for
+  # information on the format
+  # auth:
+  #   keys:
+  #     - secret: ${BACKEND_SECRET}
+  baseUrl: http://0.0.0.0:31338
+  listen:
+    port: 7007
+    # Uncomment the following host directive to bind to all IPv4 interfaces and
+    # not just the baseUrl hostname.
+    host: 0.0.0.0
+  csp:
+    connect-src: ["'self'", "http:", "https:"]
+    upgrade-insecure-requests: false
+    # Content-Security-Policy directives follow the Helmet format: https://helmetjs.github.io/#reference
+    # Default Helmet Content-Security-Policy values can be removed by setting the key to false
+  cors:
+    origin: '*'
+    methods: [GET, HEAD, PATCH, POST, PUT, DELETE]
+    credentials: false
+  # This is for local development only, it is not recommended to use this in production
+  # The production database configuration is stored in app-config.production.yaml
+  database:
+    client: better-sqlite3
+    connection: ":memory:"
+    # client: pg
+    # connection:
+    #   host: ${POSTGRES_SERVICE_HOST}
+    #   port: ${POSTGRES_SERVICE_PORT}
+    #   user: ${POSTGRES_USER}
+    #   password: ${POSTGRES_PASSWORD}
+    # https://node-postgres.com/features/ssl
+    #ssl: require # see https://www.postgresql.org/docs/current/libpq-ssl.html Table 33.1. SSL Mode Descriptions (e.g. require)
+    #ca: # if you have a CA file and want to verify it you can uncomment this section
+    #$file: <file-path>/ca/server.crt
+  cache:
+    store: memory
+    # workingDirectory: /tmp # Use this to configure a working directory for the scaffolder, defaults to the OS temp-dir
+integrations:
+  awsS3:
+    - endpoint: 'http://minio.kratix-platform-system.svc.cluster.local'
+      s3ForcePathStyle: true
+      accessKeyId: ${AWS_ACCESS_KEY_ID}
+      secretAccessKey: ${AWS_SECRET_ACCESS_KEY}
+  github:
+    - host: github.com
+      # This is a Personal Access Token or PAT from GitHub. You can find out how to generate this token, and more information
+      # about setting up the GitHub integration here: https://backstage.io/docs/getting-started/configuration#setting-up-a-github-integration
+      token: ${GITHUB_TOKEN}
+      ### Example for how to add your GitHub Enterprise instance using the API:
+      # - host: ghe.example.net
+      #   apiBaseUrl: https://ghe.example.net/api/v3
+      #   token: ${GHE_TOKEN}
+# Reference documentation http://backstage.io/docs/features/techdocs/configuration
+# Note: After experimenting with basic setup, use CI/CD to generate docs
+# and an external cloud storage when deploying TechDocs for production use-case.
+# https://backstage.io/docs/features/techdocs/how-to-guides#how-to-migrate-from-techdocs-basic-to-recommended-deployment-approach
+techdocs:
+  builder: "local" # Alternatives - 'external'
+  generator:
+    runIn: "docker" # Alternatives - 'local'
+  publisher:
+    type: "local" # Alternatives - 'googleGcs' or 'awsS3'. Read documentation for using alternatives.
+auth:
+  # see https://backstage.io/docs/auth/ to learn about auth providers
+  providers: {}
+scaffolder:
+# see https://backstage.io/docs/features/software-templates/configuration for software template options
+catalog:
+  import:
+    entityFilename: catalog-info.yaml
+    pullRequestBranchName: backstage-integration
+  rules:
+    - allow: [Domain, Component, System, API, Resource, Location, Group, Template]
+  providers:
+    awsS3:
+      kratix-minio:
+        bucketName: kratix
+        prefix: backstage/dependencies
+        region: us-east-2
+        schedule: # optional; same options as in TaskScheduleDefinition
+          # supports cron, ISO duration, "human duration" as used in code
+          frequency: {minutes: 1}
+          # supports ISO duration, "human duration" as used in code
+          timeout: {seconds: 20}
+  locations:
+# - type: file
+#   target: ./kratix-plugins/platform-domain.yaml
+# - type: file
+#   target: ./kratix-plugins/platform-system.yaml
+# - type: file
+#   target: ./kratix-plugins/kratix-service.yaml
+# - type: file
+#   target: ./kratix-plugins/namespace-template.yaml
+# - type: file
+#   target: ./kratix-plugins/jenkins-component.yaml
+# Groups
+# - type: file
+#   target: ./kratix-plugins/kratix-team.yaml
+# - type: file
+#   target: ./kratix-plugins/platform-team.yaml
+#   rules:
+#     - allow: [User, Group]
+# Local example template
+# - type: file
+#   target: ../../examples/template/template.yaml
+#   rules:
+#     - allow: [Template]
+# Local example organizational data
+# - type: file
+#   target: ../../examples/org.yaml
+#   rules:
+#     - allow: [User, Group]
+## Uncomment these lines to add more example data
+# - type: url
+#   target: https://github.com/backstage/backstage/blob/master/packages/catalog-model/examples/all.yaml
+## Uncomment these lines to add an example org
+# - type: url
+#   target: https://github.com/backstage/backstage/blob/master/packages/catalog-model/examples/acme-corp.yaml
+#   rules:
+#     - allow: [User, Group]
+
+
+# cat app-config.test.yaml
+app:
+  title: PaaP Backstage App
+  baseUrl: http://0.0.0.0:31338
+organization:
+  name: Developer Portal
+backend:
+  # Used for enabling authentication, secret is shared by all backend plugins
+  # See https://backstage.io/docs/tutorials/backend-to-backend-auth for
+  # information on the format
+  # auth:
+  #   keys:
+  #     - secret: ${BACKEND_SECRET}
+  baseUrl: http://0.0.0.0:31338
+  listen:
+    port: 7007
+    # Uncomment the following host directive to bind to all IPv4 interfaces and
+    # not just the baseUrl hostname.
+    host: 0.0.0.0
+  csp:
+    connect-src: ["'self'", "http:", "https:"]
+    upgrade-insecure-requests: false
+    # Content-Security-Policy directives follow the Helmet format: https://helmetjs.github.io/#reference
+    # Default Helmet Content-Security-Policy values can be removed by setting the key to false
+  cors:
+    origin: '*'
+    methods: [GET, HEAD, PATCH, POST, PUT, DELETE]
+    credentials: false
+  # This is for local development only, it is not recommended to use this in production
+  # The production database configuration is stored in app-config.production.yaml
+  database:
+    client: better-sqlite3
+    connection: ":memory:"
+    # client: pg
+    # connection:
+    #   host: ${POSTGRES_SERVICE_HOST}
+    #   port: ${POSTGRES_SERVICE_PORT}
+    #   user: ${POSTGRES_USER}
+    #   password: ${POSTGRES_PASSWORD}
+    # https://node-postgres.com/features/ssl
+    #ssl: require # see https://www.postgresql.org/docs/current/libpq-ssl.html Table 33.1. SSL Mode Descriptions (e.g. require)
+    #ca: # if you have a CA file and want to verify it you can uncomment this section
+    #$file: <file-path>/ca/server.crt
+  cache:
+    store: memory
+    # workingDirectory: /tmp # Use this to configure a working directory for the scaffolder, defaults to the OS temp-dir
+integrations:
+  awsS3:
+    - endpoint: 'http://minio.kratix-platform-system.svc.cluster.local'
+      s3ForcePathStyle: true
+      accessKeyId: ${AWS_ACCESS_KEY_ID}
+      secretAccessKey: ${AWS_SECRET_ACCESS_KEY}
+  github:
+    - host: github.com
+      # This is a Personal Access Token or PAT from GitHub. You can find out how to generate this token, and more information
+      # about setting up the GitHub integration here: https://backstage.io/docs/getting-started/configuration#setting-up-a-github-integration
+      token: ${GITHUB_TOKEN}
+      ### Example for how to add your GitHub Enterprise instance using the API:
+      # - host: ghe.example.net
+      #   apiBaseUrl: https://ghe.example.net/api/v3
+      #   token: ${GHE_TOKEN}
+  gitlab:
+    - host: gitlab.com
+      token: 'glpat-DA1J-jb8xny68QKUhzb4'
+# Reference documentation http://backstage.io/docs/features/techdocs/configuration
+# Note: After experimenting with basic setup, use CI/CD to generate docs
+# and an external cloud storage when deploying TechDocs for production use-case.
+# https://backstage.io/docs/features/techdocs/how-to-guides#how-to-migrate-from-techdocs-basic-to-recommended-deployment-approach
+techdocs:
+  builder: "local" # Alternatives - 'external'
+  generator:
+    runIn: "docker" # Alternatives - 'local'
+  publisher:
+    type: "local" # Alternatives - 'googleGcs' or 'awsS3'. Read documentation for using alternatives.
+auth:
+  # see https://backstage.io/docs/auth/ to learn about auth providers
+  providers: {}
+kubernetes:
+  serviceLocatorMethod:
+    type: 'multiTenant'
+  clusterLocatorMethods:
+    - type: 'config'
+      clusters:
+        - url: https://A24FA499CED596B9F951667222F82BC7.gr7.eu-west-1.eks.amazonaws.com
+          name: kind-platform
+          authProvider: 'serviceAccount'
+          skipTLSVerify: true
+          skipMetricsLookup: true
+          serviceAccountToken: 'eyJhbGciOiJSUzI1NiIsImtpZCI6IkQyLXNUaTByOHFpdWV2QTBSVUgta1BSampQNDRrU1NxbFNpVWlCaEJiTDAifQ.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJkZWZhdWx0Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubmFtZSI6ImtyYXRpeC1iYWNrc3RhZ2Utc2EtdG9rZW4iLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC5uYW1lIjoia3JhdGl4LWJhY2tzdGFnZS1zYSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50LnVpZCI6IjZlMDQ3ZjFkLTAwY2EtNGZjYy04Mzc5LWZjNjc2ODM1NTEzYSIsInN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpkZWZhdWx0OmtyYXRpeC1iYWNrc3RhZ2Utc2EifQ.X4UDGHUqfg3b4u4867E-KNBY1BA3GG9PSVerOQMmcqK7VbEB4O4mNMWVOvzXVcsXj9CSMnDaYBa7mDIVHY_y3l5LXbrPSzWr9oybBB-5X8y9XxOqH1sNEte-SY7CdQ2hL6dRsBiPpgq7vdv0NLwTsdz3HL2aSw8HM9RByUazCGmZds7svdynbGdJavbn0cc4g4HSM2MhCVTfR8dA561wvdpEB3GIApuHI6v9Yf7BIaDp3WIy3UKaIb7zRLh8JhyQ2Og7nZjSf-zUYgPB3LltAYgq2udHfWkwBP_wJyxR7qr7PPrcR39ST3jfNWx7AzJEpGdY2DaqdABMfQofHLOl0g'
+          customResources:
+            - group: 'platform.kratix.io'
+              apiVersion: 'v1alpha1'
+              plural: 'promises'
+ske:
+  scm:
+    username: KratixStateStore-at-965329800628
+    token: 'qyGNwL9ZSp+MfaXel1RJGZ2u1eHqAVHSavQrQCzq1OM='
+    repoUrl: https://git-codecommit.eu-west-1.amazonaws.com/v1/repos/KratixStateStore.git
+    path: "AWS_PLATFORM/platform-cluster-codecommit/resources"
+    branch: "main"
+scaffolder:
+# see https://backstage.io/docs/features/software-templates/configuration for software template options
+catalog:
+  import:
+    entityFilename: catalog-info.yaml
+    pullRequestBranchName: backstage-integration
+  rules:
+    - allow: [Domain, Component, System, API, Resource, Location, Group, Template]
+  providers:
+    awsS3:
+      kratix-minio:
+        bucketName: kratix
+        prefix: backstage
+        region: us-east-2
+        schedule: # optional; same options as in TaskScheduleDefinition
+          # supports cron, ISO duration, "human duration" as used in code
+          frequency: {minutes: 1}
+          # supports ISO duration, "human duration" as used in code
+          timeout: {seconds: 20}
+  locations:
+# - type: file
+#   target: ./kratix-plugins/platform-domain.yaml
+# - type: file
+#   target: ./kratix-plugins/platform-system.yaml
+# - type: file
+#   target: ./kratix-plugins/kratix-service.yaml
+# - type: file
+#   target: ./kratix-plugins/namespace-template.yaml
+# - type: file
+#   target: ./kratix-plugins/jenkins-component.yaml
+# Groups
+# - type: file
+#   target: ./kratix-plugins/kratix-team.yaml
+# - type: file
+#   target: ./kratix-plugins/platform-team.yaml
+#   rules:
+#     - allow: [User, Group]
+# Local example template
+# - type: file
+#   target: ../../examples/template/template.yaml
+#   rules:
+#     - allow: [Template]
+# Local example organizational data
+# - type: file
+#   target: ../../examples/org.yaml
+#   rules:
+#     - allow: [User, Group]
+## Uncomment these lines to add more example data
+# - type: url
+#   target: https://github.com/backstage/backstage/blob/master/packages/catalog-model/examples/all.yaml
+## Uncomment these lines to add an example org
+# - type: url
+#   target: https://github.com/backstage/backstage/blob/master/packages/catalog-model/examples/acme-corp.yaml
+#   rules:
+#     - allow: [User, Group]
+
+
+
+
 | Name | Email | Url |
 | ---- | ------ | --- |
 | Backstage |  | <https://backstage.io> |
