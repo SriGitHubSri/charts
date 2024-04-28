@@ -5,5 +5,5 @@
 .idea
 
 # helm chart dependencies
-charts/*/charts/
-**/charts/*.tgz
+# charts/*/charts/
+# **/charts/*.tgz
