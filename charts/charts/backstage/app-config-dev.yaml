@@ -1,0 +1,139 @@
+piVersion: v1
+data:
+  config: |
+    app:
+      title: PaaP Backstage App
+      baseUrl: http://0.0.0.0:31338
+    organization:
+      name: Natwest Developer Portal
+    backend:
+      # Used for enabling authentication, secret is shared by all backend plugins
+      # See https://backstage.io/docs/tutorials/backend-to-backend-auth for
+      # information on the format
+      # auth:
+      #   keys:
+      #     - secret: ${BACKEND_SECRET}
+      baseUrl: http://0.0.0.0:31338
+      listen:
+        port: 7007
+        # Uncomment the following host directive to bind to all IPv4 interfaces and
+        # not just the baseUrl hostname.
+        host: 0.0.0.0
+      csp:
+        connect-src: ["'self'", "http:", "https:"]
+        upgrade-insecure-requests: false
+        # Content-Security-Policy directives follow the Helmet format: https://helmetjs.github.io/#reference
+        # Default Helmet Content-Security-Policy values can be removed by setting the key to false
+      cors:
+        origin: '*'
+        methods: [GET, HEAD, PATCH, POST, PUT, DELETE]
+        credentials: true
+      # This is for local development only, it is not recommended to use this in production
+      # The production database configuration is stored in app-config.production.yaml
+      database:
+        client: better-sqlite3
+        connection: ":memory:"
+        # client: pg
+        # connection:
+        #   host: ${POSTGRES_SERVICE_HOST}
+        #   port: ${POSTGRES_SERVICE_PORT}
+        #   user: ${POSTGRES_USER}
+        #   password: ${POSTGRES_PASSWORD}
+        # https://node-postgres.com/features/ssl
+        #ssl: require # see https://www.postgresql.org/docs/current/libpq-ssl.html Table 33.1. SSL Mode Descriptions (e.g. require)
+        #ca: # if you have a CA file and want to verify it you can uncomment this section
+        #$file: <file-path>/ca/server.crt
+      cache:
+        store: memory
+        # workingDirectory: /tmp # Use this to configure a working directory for the scaffolder, defaults to the OS temp-dir
+    ske:
+      scm:
+        token: "zKC5WJhnBdE_BBBqzvQp" # git access token
+        repoUrl: "https://natwest.gitlab-dedicated.com/natwestgroup/DigitalX/Technology/HostingSolutions/PAAP/fluxprojectscicd/Requests/-/tree/test?ref_type=heads" # repository url
+        type: "gitlab" # optional; git provider, currently one of "github" or "gitlab" (used to determine username if `username` not set)
+        username: "Kratix" # optional; username for basic auth (default: inferred based on `type`)
+        path: "catalog" # optional; path within the repository (default: "")
+        branch: "test" # optional; branch to use (default: "main")
+        #defaultAuthor: # optional; git author details
+          #name: "my-name" # default: "SKE"
+          #email: "my@email.com" # default: ske@backstage.io
+
+    integrations:
+      awsS3:
+        - endpoint: 'http://minio.kratix-platform-system.svc.cluster.local'
+          s3ForcePathStyle: true
+          accessKeyId: ${AWS_ACCESS_KEY_ID}
+          secretAccessKey: ${AWS_SECRET_ACCESS_KEY}
+      github:
+        - host: github.com
+          # This is a Personal Access Token or PAT from GitHub. You can find out how to generate this token, and more information
+          # about setting up the GitHub integration here: https://backstage.io/docs/getting-started/configuration#setting-up-a-github-integration
+          token: ${GITHUB_TOKEN}
+          ### Example for how to add your GitHub Enterprise instance using the API:
+          # - host: ghe.example.net
+          #   apiBaseUrl: https://ghe.example.net/api/v3
+          #   token: ${GHE_TOKEN}
+    # Reference documentation http://backstage.io/docs/features/techdocs/configuration
+    # Note: After experimenting with basic setup, use CI/CD to generate docs
+    # and an external cloud storage when deploying TechDocs for production use-case.
+    # https://backstage.io/docs/features/techdocs/how-to-guides#how-to-migrate-from-techdocs-basic-to-recommended-deployment-approach
+    techdocs:
+      builder: "local" # Alternatives - 'external'
+      generator:
+        runIn: "docker" # Alternatives - 'local'
+      publisher:
+        type: "local" # Alternatives - 'googleGcs' or 'awsS3'. Read documentation for using alternatives.
+    auth:
+      # see https://backstage.io/docs/auth/ to learn about auth providers
+      providers:
+        guest: {}
+
+    scaffolder:
+    # see https://backstage.io/docs/features/software-templates/configuration for software template options
+    catalog:
+      import:
+        entityFilename: catalog-info.yaml
+        pullRequestBranchName: backstage-integration
+      rules:
+       - allow: [Domain, Component, System, API, Resource, Location, Group, Template]
+      providers:
+        awsS3:
+          kratix-minio:
+            bucketName: kratix
+            prefix: backstage/
+            region: us-east-2
+            schedule: # optional; same options as in TaskScheduleDefinition
+              # supports cron, ISO duration, "human duration" as used in code
+              frequency: {minutes: 1}
+              # supports ISO duration, "human duration" as used in code
+              timeout: {seconds: 20}
+      locations:
+    # - type: file
+    #   target: ./kratix-plugins/platform-domain.yaml
+    # - type: file
+    #   target: ./kratix-plugins/platform-system.yaml
+    # - type: file
+    #   target: ./kratix-plugins/kratix-service.yaml
+    # - type: file
+    #   target: ./kratix-plugins/namespace-template.yaml
+    # - type: file
+    #   target: ./kratix-plugins/jenkins-component.yaml
+    # Groups
+    # - type: file
+    #   target: ./kratix-plugins/kratix-team.yaml
+    # - type: file
+    #   target: ./kratix-plugins/platform-team.yaml
+    #   rules:
+    #     - allow: [User, Group]
+    # Local example template
+    # - type: file
+    #   target: ../../examples/template/template.yaml
+    #   rules:
+    #     - allow: [Template]
+kind: ConfigMap
+metadata:
+  creationTimestamp: "2024-07-10T16:54:02Z"
+  name: backstage
+  namespace: default
+  resourceVersion: "15086322"
+  uid: 612a0d20-6c74-4449-a9e5-829ac25e6593
